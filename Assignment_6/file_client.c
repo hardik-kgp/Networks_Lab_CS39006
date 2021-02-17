@@ -5,6 +5,8 @@
 // Roll No: 18CS30040
 
 /*
+    Client side code that uses TCP protocol. 
+    Receives the file name from the user and sends it to server. Then receives the file size in chunks of PACKET_SIZE
 */
 
 #include <stdio.h>
@@ -19,7 +21,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define MAX_SIZE 75                   // maximum size of a word
+#define PACKET_SIZE 50                   // maximum size of a word
 #define PORT 8080                     // port address to bind
 #define OUTPUT_FILE "output_file.txt" // output file name
 
@@ -29,7 +31,7 @@ void error(char *msg){ // prints error message to stderr
 }
 
 int get_msg(int sockid, char *buffer){ // send the message to the server arguments : socket id , message to send
-    int len = recv(sockid, buffer, MAX_SIZE, 0);
+    int len = recv(sockid, buffer, PACKET_SIZE, 0);
     return len;
 }
 
@@ -38,6 +40,9 @@ void send_msg(int sockid, char *buffer){ // receive the message from the server 
     send(sockid, buffer, filelen, 0);
 }
 
+int isdelim(char c){
+    return (c == ',' || c == ';' || c == ':' || c == '.' || c == ' ' || c == '\t');
+}
 void main(){
     int sockid;
     struct sockaddr_in server_addr;
@@ -58,7 +63,8 @@ void main(){
     }
 
     // reading file name and sending it to the server
-    char *buffer = (char *)malloc(sizeof(char) * MAX_SIZE);
+    char *buffer = (char *)malloc(sizeof(char) * PACKET_SIZE);
+    printf("Enter the file name:\n");
     scanf("%s", buffer);
     send_msg(sockid, buffer);
 
@@ -67,8 +73,7 @@ void main(){
 
     int len = 0, num_words = 0, num_bytes = 0;
     int i = 0, flag = 0;
-    bzero(buffer, MAX_SIZE);
-    
+    bzero(buffer, PACKET_SIZE);
     // receving files in chunks
     while ((len = get_msg(sockid, buffer))>0){
         // writing to file
@@ -78,9 +83,7 @@ void main(){
         // processing input
         for (int i = 0; i < len && buffer[i] != '\0'; i++){
             num_bytes += 1;
-            if (buffer[i] == ',' || buffer[i] == ';' || 
-            buffer[i] == ':' || buffer[i] == '.' || 
-            buffer[i] == ' ' || buffer[i] == '\t'){
+            if (isdelim(buffer[i])){
                 flag=1;
             }
             else if(flag){
@@ -96,6 +99,8 @@ void main(){
     else{
         printf("\nThe file transfer is successful. Words: %d, Bytes: %d\n", num_words, num_bytes );
     }
-    close(sockid); close(fout);
-    exit(1);
+    // close the connection and output file 
+    close(sockid); 
+    close(fout);
+    exit(0);
 }
