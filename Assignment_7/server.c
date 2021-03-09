@@ -69,7 +69,7 @@ int main(){
     }
 
     int addr_size = sizeof(client);
-    while(true)  // keep listening to the connection requests
+    while(1)  // keep listening to the connection requests
     {
         int new_id = accept(sockid, (struct sockaddr *)&client, (socklen_t *) (&addr_size));  // connection id of the new client 
         if(new_id < 0){   // throw error is client id returned is invalid 
@@ -89,23 +89,24 @@ int main(){
         int file = open(recv_msg, O_RDONLY,0);
 
         if(file < 0){  // throw error is file cannot be opened 
-            sen_msg = "E";
+            sprintf(sen_msg, "E");
             send(new_id, sen_msg, PACKET_SIZE, 0); 	// send the buffer with max_size of PACKET_SIZE
             close(new_id);
             error("File not found");
         }
         else{
-            sen_msg = "L";
+            sprintf(sen_msg, "L");
             send(new_id, sen_msg, PACKET_SIZE, 0); 	// send the buffer with max_size of PACKET_SIZE
             bzero(sen_msg, sizeof(sen_msg));        // reset the message to send
 
-            fseek(file, 0L, SEEK_END);              // sending size of file
-            sen_msg = itoa(ftell(file));
-            
+            off_t FSIZE;                            // sending size of file
+            FSIZE = lseek(file, 0L, SEEK_END);
+            sprintf(sen_msg, "%ld", FSIZE);
             send(new_id, sen_msg, PACKET_SIZE, 0); 	// send the buffer with max_size of PACKET_SIZE
-            rewind(file);
+            close(file);                            // close the file   
         }
 
+        file = open(recv_msg, O_RDONLY,0);
         bzero(sen_msg, sizeof(sen_msg));  // reset the message to send
 
         // keep reading and sending the contents of the file in blocks of size B       

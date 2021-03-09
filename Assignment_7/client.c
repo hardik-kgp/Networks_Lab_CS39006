@@ -29,14 +29,16 @@
 
 void error(char *msg){ // prints error message to stderr
     perror(msg);
-    exit(1);
+    exit(0);
 }
 
 int get_msg(int sockid, char *buffer, int get_size){ // send the message to the server arguments : socket id , message to send
+
+    bzero(buffer, sizeof(buffer));  // reset the buffer to receive a new message
     
     int len;
     if(get_size == -1)
-        len = recv(sockid, buffer, B, 0);
+        len = recv(sockid, buffer, PACKET_SIZE, 0);
     else
         len = recv(sockid, buffer, get_size, MSG_WAITALL);
     return len;
@@ -73,19 +75,17 @@ void main(){
     }
 
     // reading file name and sending it to the server
+    printf("Enter file name: \n");
     char *buffer = (char *)malloc(sizeof(char) * PACKET_SIZE);
-    printf("Enter the file name:\n");
     scanf("%s", buffer);
     send_msg(sockid, buffer);
 
-    int len = get_msg(sockid, buffer, 1);
+    int len = get_msg(sockid, buffer, -1);
     if(buffer[0] == 'E'){
         close(sockid); 
-        
         error("FILE NOT FOUND");
     }
     
-
     len = get_msg(sockid, buffer, -1);
 
     int file_size = atoi(buffer);
