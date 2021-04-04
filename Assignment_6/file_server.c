@@ -94,9 +94,16 @@ int main(){
 
         bzero(sen_msg, sizeof(sen_msg));  // reset the message to send
         // keep reading and sending the contents of the file        
+        int sent_flag = 0;
         while(read(file, sen_msg, PACKET_SIZE) > 0){
             send(new_id, sen_msg, PACKET_SIZE, 0); 	// send the buffer with max_size of PACKET_SIZE
             bzero(sen_msg, sizeof(sen_msg));  // reset the message to send
+            sent_flag = 1;
+        }
+
+        if(sent_flag == 0){     // file empty
+            sen_msg[0] = '\0';
+            send(new_id, sen_msg, PACKET_SIZE, 0);
         }
         // close the connection id and the file of the current client 
         close(new_id);  // close the current client

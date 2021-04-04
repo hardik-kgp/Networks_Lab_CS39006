@@ -71,7 +71,7 @@ void main(){
         close(sockid);
         error("Cannot connect to server");
     }
-
+    
     // reading file name and sending it to the server
     char *buffer = (char *)malloc(sizeof(char) * PACKET_SIZE);
     printf("Enter the file name:\n");

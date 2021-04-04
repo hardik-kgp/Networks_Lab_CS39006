@@ -41,7 +41,7 @@ void send_msg(int sockid, char *buffer){ // receive the message from the server 
 }
 
 int isdelim(char c){
-    return (c == ',' || c == ';' || c == ':' || c == '.' || c == ' ' || c == '\t');
+    return (c == ',' || c == ';' || c == ':' || c == '.' || c == ' ' || c == '\t' || c == '\n');
 }
 void main(){
     int sockid;
@@ -72,14 +72,14 @@ void main(){
     int fout = open(OUTPUT_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     int len = 0, num_words = 0, num_bytes = 0;
-    int i = 0, flag = 0;
+    int i = 0, flag = 1, received_flag = 0;
     bzero(buffer, PACKET_SIZE);
     // receving files in chunks
     while ((len = get_msg(sockid, buffer))>0){
         // writing to file
         write(fout, buffer, strlen(buffer));
         printf("%s", buffer);
-
+        received_flag = 1;
         // processing input
         for (int i = 0; i < len && buffer[i] != '\0'; i++){
             num_bytes += 1;
@@ -92,8 +92,8 @@ void main(){
             }
         }
     }
-
-    if(len <=0 && num_bytes == 0){
+ 
+    if(len <=0 && num_bytes == -1 && received_flag == 0){
         error("ERR 01: File Not Found");
     }
     else{
