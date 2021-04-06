@@ -4,136 +4,60 @@
 // Name : Sriyash Poddar
 // Roll No: 18CS30040
 
-
-#include <bits/stdc++.h>
-#include <iostream>
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <unistd.h> 
-#include <string.h> 
-#include <sys/types.h> 
-#include <sys/socket.h> 
-#include <arpa/inet.h> 
-#include <netinet/in.h> 
-#include <assert.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <signal.h>
-using namespace std;
-#define BUFFER_SIZE 50        // maxisize of input file name
-#define PORT 12000                // port address to bind
-#define MAX_CON 5           // maximum number of waiting connections in queue
-#define PACKET_SIZE 50     // size of packets
-
-void error(char *msg){       // prints error message to stderr
-    perror(msg);
-    exit(1);
-}
-
-
-map<string, int> names_to_port, names_to_fd, last_used;
-
-
-void sig_handler(int signal){
-    for(auto &item:names_to_fd){
-        close(item.second);
-    }
-    exit(0);
-}
-typedef struct user_info{
-    string name;
-    string ip;
-    int port;
-} user_info;
-
-string findbyport(int port){
-    for(auto item:names_to_port){
-        if(item.second == port) return item.first;
-    }
-    return "";
-}
-
-pair<string,string> split(char *sen_msg, int len){
-    string name = "", msg = "";
-    int change = 0;
-    for(int i = 0;i<len;i++){
-        if(sen_msg[i] == '/'){
-            change = 1;
-        }
-        else if(change == 0){
-            name += sen_msg[i];
-        }
-        else msg += sen_msg[i];
-    }
-    return {name, msg};
-}
-
+#include "peer.h"
 
 int main(){
 
     int opt = 1;
     signal(SIGINT,sig_handler);
-    // two arrays to receive and send message
+    /* Two arrays to receive and send message */
     char sen_msg[BUFFER_SIZE], recv_msg[BUFFER_SIZE];
-    names_to_port["Jan"] = 12000;
-    names_to_port["Michael"] = 12001;
-    names_to_port["Jim"] = 12002;
-    names_to_port["Toby"] = 12003;
-    names_to_port["Dwight"] = 12004;
+    init_map();
 
-    names_to_fd["Jan"] = -1;
-    names_to_fd["Michael"] = -1;
-    names_to_fd["Jim"] = -1;
-    names_to_fd["Toby"] = -1;
-    names_to_fd["Dwight"] = -1;
-
-    
     int port = -1;
-    do{
-        cout << "Enter your username(Jan, Michael, Jim, Toby, Dwight): " ;
-        string name;
-        cin >> name;
-        for(pair<string, int> item: names_to_port){
-            if(item.first == name){
-                port = item.second;
-            }
+    while (true)
+    {
+        printf("Enter your username(Jan, Michael, Jim, Toby, Dwight): ");
+        string name; cin >> name;
+        if (portMap.find(name) == portMap.end())
+            error("Please Enter a valid username");
+        else{
+            port = portMap[name];
+            printf("Hi %s !\n", name.c_str());
+            PROMPT;
+            break;
         }
-        if(port == -1){
-            cout << "Please Enter a valid username" << endl;
-        }
-    }while(port == -1);
-         
-    
+    }
 
+    /* Setting up the server */
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1) 
-        error("Cannot Open Socket");
+        errorExit("Cannot Open Socket");
 
     if( setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, (char *)&opt, 
           sizeof(opt)) < 0 )  {  
-        error("setsockopt");  
+        errorExit("setsockopt");  
     }  
     struct sockaddr_in server;
 
-    clock_t begin =  clock();
+    auto begin = std::chrono::system_clock::now();
     
-    server.sin_family = AF_INET;   // adress family = IPv4
-    server.sin_addr.s_addr = inet_addr("127.0.0.1");   // local host as ip_address
-    server.sin_port = htons(port);    // port number in the network order
+    server.sin_family = AF_INET;                            // adress family = IPv4
+    server.sin_addr.s_addr = inet_addr("127.0.0.1");        // local host as ip_address
+    server.sin_port = htons(port);                          // port number in the network order
     
-    memset(server.sin_zero, 0, sizeof(server.sin_zero));  // assign zeros
+    memset(server.sin_zero, 0, sizeof(server.sin_zero));    // assign zeros
 
     int bind_status = bind(server_fd, (const struct sockaddr *)&server, sizeof(server));  // bind the socket to address
-    if(bind_status < 0){    // throw error if cannot bind
-        error("Cannot bind the socket");
+    if(bind_status < 0){                                    // throw error if cannot bind
+        errorExit("Cannot bind the socket");
     }
     
     if(listen(server_fd, MAX_CON) < 0){
-        error("Listening failed!");
+        errorExit("Listening failed!");
     }
 
-    
-
+    /* Variables for select function */
     fd_set readfds;
     fd_set writefds;
     fd_set exceptfds;
@@ -142,7 +66,7 @@ int main(){
     vector<int> fds;
     fds.push_back(STDIN_FILENO);
     fds.push_back(server_fd);
-    
+
     while(true){
         
         FD_ZERO(&readfds);
@@ -155,20 +79,21 @@ int main(){
 
         }
         
-        
         int total_triggered = select(max_fd + 1, &readfds, &writefds,&exceptfds,&timeout);
 
+        /* To take input from command line*/
         if(FD_ISSET(STDIN_FILENO, &readfds)){
 
             bzero(sen_msg,BUFFER_SIZE);
             int len = read(STDIN_FILENO,sen_msg,BUFFER_SIZE);
             string peer_name, msg;
             tie(peer_name, msg) = split(sen_msg, len);
-            if(!names_to_fd.count(peer_name)){
-                error("incorrect message username!");
+            if(!fdMap.count(peer_name)){
+                error("Incorrect message username!");
             }
 
-            if(names_to_fd[peer_name] == -1){
+            /* Establishing connection to the client */
+            if(fdMap[peer_name] == -1){
                 int sockid;
                 struct sockaddr_in client;
                 bzero((char *)&client, sizeof(client));
@@ -177,37 +102,36 @@ int main(){
                 if (sockid < 0)
                     error("Cannot open socket");
 
-                int opt1 = 1;
-                if( setsockopt(sockid, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, (char *)&opt1, sizeof(opt1)) < 0 )  {  
-                    error("setsockopt");  
+                int opt_ = 1;
+                if( setsockopt(sockid, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, (char *)&opt_, sizeof(opt_)) < 0 )  {  
+                    error("Setsockopt error");  
                 }  
                 int bind_status = bind(sockid, (const struct sockaddr *)&server, sizeof(server));
                 if(bind_status  < 0){
                     error("Error in binding to Port");
                 }
-                // connecting to server
-                client.sin_family = AF_INET; // adress family = IPv4
-                client.sin_port = htons(names_to_port[peer_name]); // port number in the network order
-                
-                client.sin_addr.s_addr = inet_addr("127.0.0.1"); // ip address of the machine 
-                
+
+                client.sin_family = AF_INET;                        // adress family = IPv4
+                client.sin_port = htons(portMap[peer_name]);        // port number in the network order
+                client.sin_addr.s_addr = inet_addr("127.0.0.1");    // ip address of the machine 
 
                 if (connect(sockid, (struct sockaddr *)&client, sizeof(client)) < 0){
                     close(sockid);
-                    error("Cannot connect to server");
+                    error("Cannot connect to client");
                 }
 
-                names_to_fd[peer_name]=sockid;
+                fdMap[peer_name]=sockid;
                 fds.push_back(sockid);
             }
             
-            len = write(names_to_fd[peer_name], msg.c_str(), strlen(msg.c_str()));
-            if (len < 0) 
-                error("ERROR sending message to peer");
-            
-            last_used[peer_name]=(float)(clock()-begin)/CLOCKS_PER_SEC;
+            len = write(fdMap[peer_name], msg.c_str(), strlen(msg.c_str()));
+            if (len < 0) error("Cannot send message to peer");
+            else PROMPT;
+
+            last_used[peer_name]=get_time(begin);
         }
 
+        /* Getting messages from others*/
         if(FD_ISSET(server_fd, &readfds)){
 
             struct sockaddr_in clientaddr; /* client addr */
@@ -219,16 +143,15 @@ int main(){
             if(client_port < 12000 || client_port > 12004){
                 error("Invalid Port!");
             }
-            names_to_fd[findbyport(client_port)] = childfd;
-            last_used[findbyport(client_port)] = (float)(clock()-begin)/CLOCKS_PER_SEC;
+            fdMap[findbyport(client_port)] = childfd;
+            last_used[findbyport(client_port)] = get_time(begin);
 
             fds.push_back(childfd);
         }
 
-        
-
-        for(auto item:names_to_fd){
-            float current_time = (float)(clock()-begin)/CLOCKS_PER_SEC;
+        /* Printing messages and Disconneting due to inactivity*/
+        for(auto item:fdMap){
+            float current_time = get_time(begin);
             if(current_time - last_used[item.first] > 120.0){   // case for timeout
                 item.second = -1;
             }
@@ -237,20 +160,39 @@ int main(){
             if(FD_ISSET(item.second, &readfds)){
                 bzero(recv_msg, BUFFER_SIZE);
                 int len = read(item.second, recv_msg, BUFFER_SIZE);
-                last_used[item.first] = (float)(clock()-begin)/CLOCKS_PER_SEC;
+                last_used[item.first] = get_time(begin);
                 if (len < 0) 
-                    error("ERROR reading from peer");
-                if(len == 0)
-                {
+                    error("Error reading from peer");
+                if(len == 0){
                     close(item.second);
                     item.second = -1;
                 }
                 else{
-                    cout << item.first << " : " << recv_msg << endl;
+                    printf("From %s: %s\n", item.first.c_str(), recv_msg);
+                    PROMPT;
                 }
             }
         }
     }
-  
     return 0;
+}
+
+void sig_handler(int signal){
+    for(auto &item:fdMap){
+        close(item.second);
+    }
+    exit(0);
+}
+
+string findbyport(int port){
+    for(auto item:portMap){
+        if(item.second == port) return item.first;
+    }
+    return "";
+}
+
+pair<string,string> split(char *sen_msg, int len){
+    string name = strtok(sen_msg, "/");
+    string msg = strtok(NULL, "/");
+    return {name, msg};
 }
