@@ -19,10 +19,10 @@ int main(){
     {
         printf("Enter your username(Jan, Michael, Jim, Toby, Dwight): ");
         string name; cin >> name;
-        if (portMap.find(name) == portMap.end())
+        if (findbyname(name) == -1)
             error("Please Enter a valid username");
         else{
-            port = portMap[name];
+            port = findbyname(name);
             printf("Hi %s !\n", name.c_str());
             PROMPT;
             break;
@@ -90,6 +90,7 @@ int main(){
             tie(peer_name, msg) = split(sen_msg, len);
             if(!fdMap.count(peer_name)){
                 error("Incorrect message username!");
+                continue;
             }
 
             /* Establishing connection to the client */
@@ -99,25 +100,29 @@ int main(){
                 bzero((char *)&client, sizeof(client));
          
                 sockid = socket(AF_INET, SOCK_STREAM, 0); //opening socket
-                if (sockid < 0)
+                if (sockid < 0){
                     error("Cannot open socket");
-
+                    continue;
+                }
                 int opt_ = 1;
                 if( setsockopt(sockid, SOL_SOCKET, SO_REUSEADDR|SO_REUSEPORT, (char *)&opt_, sizeof(opt_)) < 0 )  {  
                     error("Setsockopt error");  
+                    continue;
                 }  
                 int bind_status = bind(sockid, (const struct sockaddr *)&server, sizeof(server));
                 if(bind_status  < 0){
                     error("Error in binding to Port");
+                    continue;
                 }
 
                 client.sin_family = AF_INET;                        // adress family = IPv4
-                client.sin_port = htons(portMap[peer_name]);        // port number in the network order
+                client.sin_port = htons(findbyname(peer_name));        // port number in the network order
                 client.sin_addr.s_addr = inet_addr("127.0.0.1");    // ip address of the machine 
 
                 if (connect(sockid, (struct sockaddr *)&client, sizeof(client)) < 0){
                     close(sockid);
                     error("Cannot connect to client");
+                    continue;
                 }
 
                 fdMap[peer_name]=sockid;
@@ -142,6 +147,7 @@ int main(){
             int client_port = ntohs(clientaddr.sin_port);
             if(client_port < 12000 || client_port > 12004){
                 error("Invalid Port!");
+                continue;
             }
             fdMap[findbyport(client_port)] = childfd;
             last_used[findbyport(client_port)] = get_time(begin);
@@ -150,12 +156,16 @@ int main(){
         }
 
         /* Printing messages and Disconneting due to inactivity*/
-        for(auto item:fdMap){
+        for(auto &item:fdMap){
+
+            if(item.second == -1) continue;
             float current_time = get_time(begin);
             if(current_time - last_used[item.first] > 120.0){   // case for timeout
+                cout << "Connection closed with " << item.first << "! "<< endl;
+                close(item.second);
                 item.second = -1;
             }
-            if(item.second == -1) continue;
+            
 
             if(FD_ISSET(item.second, &readfds)){
                 bzero(recv_msg, BUFFER_SIZE);
@@ -185,12 +195,18 @@ void sig_handler(int signal){
 }
 
 string findbyport(int port){
-    for(auto item:portMap){
-        if(item.second == port) return item.first;
+    for(int i = 0;i<5;i++){
+        if(portMap[i].port == port) return portMap[i].name;
     }
     return "";
 }
 
+int findbyname(string name){
+    for(int i = 0;i<5;i++){
+        if(portMap[i].name == name) return portMap[i].port;
+    }
+    return -1;
+}
 pair<string,string> split(char *sen_msg, int len){
     string name = strtok(sen_msg, "/");
     string msg = strtok(NULL, "/");

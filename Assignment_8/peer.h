@@ -1,3 +1,10 @@
+// Name: Hardik Aggarwal
+// Roll No: 18CS10021
+
+// Name : Sriyash Poddar
+// Roll No: 18CS30040
+
+
 #include <bits/stdc++.h>
 #include <iostream>
 #include <stdio.h> 
@@ -26,20 +33,32 @@ using namespace std::chrono;
 #define KNRM  "\x1B[0m"
 #define PROMPT printf("--------------\n");
 
-map<string, int> portMap, fdMap, last_used;
+map<string, int>fdMap, last_used;
 
+struct user_info{
+    string name, ip_address = "127.0.0.1";
+    int port;
+} portMap[5];
 void init_map(){
-    portMap["Jan"] = 12000;
-    portMap["Michael"] = 12001;
-    portMap["Jim"] = 12002;
-    portMap["Toby"] = 12003;
-    portMap["Dwight"] = 12004;
+
+    portMap[0].name = "Jan";
+    portMap[1].name = "Michael";
+    portMap[2].name = "Jim";
+    portMap[3].name = "Toby";
+    portMap[4].name = "Dwight";
+    
+    portMap[0].port = 12000;
+    portMap[1].port = 12001;
+    portMap[2].port = 12002;
+    portMap[3].port = 12003;
+    portMap[4].port = 12004;
 
     fdMap["Jan"] = -1;
     fdMap["Michael"] = -1;
     fdMap["Jim"] = -1;
     fdMap["Toby"] = -1;
     fdMap["Dwight"] = -1;
+    
 }
 
 void errorExit(char *msg){            // prints error message to stderr and exits
@@ -59,4 +78,5 @@ float get_time(time_point<system_clock> start){
 
 void sig_handler(int);
 string findbyport(int);
+int findbyname(string);
 pair<string,string> split(char *, int);
